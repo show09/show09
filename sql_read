@@ -1,0 +1,36 @@
+import sqlite3
+import pandas as pd
+
+# 连接到SQLite数据库，这里使用内存数据库作为示例
+db_conn = sqlite3.connect(':memory:')
+cursor = db_conn.cursor()
+
+# 读取SQL文件中的语句
+sql_file_path = 'your_sql_file.sql'
+with open(sql_file_path, 'r') as sql_file:
+    sql_statements = sql_file.read()
+
+# 执行SQL语句
+cursor.executescript(sql_statements)
+
+# 获取动态表名的列表，假设动态表名为table1, table2, ...
+tables_query = "SELECT name FROM sqlite_master WHERE type='table';"
+table_names = cursor.execute(tables_query).fetchall()
+
+# 导出每个表的数据到Excel文件
+excel_file_name = 'output.xlsx'
+excel_writer = pd.ExcelWriter(excel_file_name, engine='openpyxl')
+
+for table_name in table_names:
+    table_name = table_name[0]  # table_name是一个元组
+    query = f"SELECT * FROM {table_name};"
+    df = pd.read_sql_query(query, db_conn)
+    df.to_excel(excel_writer, sheet_name=table_name, index=False)
+
+excel_writer.save()
+
+# 关闭数据库连接
+cursor.close()
+db_conn.close()
+
+print("数据已成功导出到Excel文件。")
