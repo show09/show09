@@ -3,12 +3,38 @@ import sqlite3
 import pandas as pd
 from openpyxl import load_workbook
 
+
+excel_file_name = 'output.xlsx'
+sql_folder_path = 'your_sql_folder/*'  # 実際のフォルダパスに置き換えてください
+file_info_column_name = 'ファイル名'
+file_info_sheet_name = 'ファイル情報'
+#excelファイル
+#(mouth_common_2pk,mouth_common_2pk,mouth_common_tds,)
+#(hour_att_tdl,hour_att_tds,hour_etm_tdl,hour_etm_tds,)
+#(hour_common_profile_2pk,hour_common_profile_tdl,hour_common_profile_tds)
+#(hour_common_ex_value_tdl,hour_common_ex_value_tds)
+#(hour_obj_tdl,hour_common_obj_tds)
+#(week_tdl,week_tds)
+
+# 読み込まれたファイル名をExcelファイルの指定セルに書き込む
+new_startrow = 0  # 行番号（例: 0）
+new_startcol = 0 # 列番号（例: 0）
+#(mouth_common_2pk,mouth_common_2pk,mouth_common_tds,start_row = ?? start_col = ??)
+
+
+#(hour_att_tdl,hour_att_tds,hour_etm_tdl,hour_etm_tds,start_row = 5,start_col = 6)
+
+#(hour_common_profile_2pk,hour_common_profile_tdl,hour_common_profile_tds,start_row = 5,start_col = 8)
+#(hour_common_ex_value_tdl,hour_common_ex_value_tds,start_row = 5,start_col = 6)
+#(hour_obj_tdl,hour_common_obj_tds,start_row = 5,start_col = 6)
+#(week_tdl,start_row = 4,start_col = 2)
+#(week_tds,start_row = 12,start_col = 6)
+
 # メモリ内データベースを作成
 db_conn = sqlite3.connect(':memory:')
 cursor = db_conn.cursor()
 
 # SQLフォルダ内のすべてのSQLファイルを読み込む
-sql_folder_path = 'your_sql_folder/*'  # 実際のフォルダパスに置き換えてください
 sql_files = glob.glob(sql_folder_path)
 
 # 各SQLファイルのSQL文を実行
@@ -21,27 +47,26 @@ for sql_file in sql_files:
 tables_query = "SELECT name FROM sqlite_master WHERE type='table';"
 table_names = cursor.execute(tables_query).fetchall()
 
-# Excelファイルを読み込む
-excel_file_name = 'output.xlsx'
-excel_book = load_workbook(excel_file_name)
+# Excelファイルを作成
 excel_writer = pd.ExcelWriter(excel_file_name, engine='openpyxl')
-excel_writer.book = excel_book
-
 # 各テーブルのデータをExcelファイルにエクスポート
 for table_name in table_names:
     table_name = table_name[0]  # テーブル名はタプル内にある
     query = f"SELECT * FROM {table_name};"
     df = pd.read_sql_query(query, db_conn)
-    df.to_excel(excel_writer, sheet_name=table_name, index=False)
-
+    df.to_excel(excel_writer, sheet_name=table_name, index=False,startrow=new_startrow, startcol=new_startcol)
+    # 自動的に次の行に移動
+    new_startrow += len(df) + 1
+    
 excel_writer.save()
 
 # 読み込まれたファイル名をExcelファイルの指定セルに書き込む
-start_row = 0
-start_col = 0
 file_names_str = ', '.join(sql_files)
-file_info_df = pd.DataFrame({'ファイル名': [file_names_str]})
-file_info_df.to_excel(excel_book, sheet_name='ファイル情報', startrow=start_row, startcol=start_col, index=False, header=False)
+file_info_df = pd.DataFrame({file_info_column_name: [file_names_str]})
+file_info_df.to_excel(excel_file_name, sheet_name=file_info_sheet_name,startrow=startrow, startcol=startcol, index=False, header=False)
+
+
+excel_writer.save()
 
 # データベース接続をクローズ
 cursor.close()
