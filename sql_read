@@ -1,36 +1,50 @@
+import glob
 import sqlite3
 import pandas as pd
+from openpyxl import load_workbook
 
-# 连接到SQLite数据库，这里使用内存数据库作为示例
+# メモリ内データベースを作成
 db_conn = sqlite3.connect(':memory:')
 cursor = db_conn.cursor()
 
-# 读取SQL文件中的语句
-sql_file_path = 'your_sql_file.sql'
-with open(sql_file_path, 'r') as sql_file:
-    sql_statements = sql_file.read()
+# SQLフォルダ内のすべてのSQLファイルを読み込む
+sql_folder_path = 'your_sql_folder/*'  # 実際のフォルダパスに置き換えてください
+sql_files = glob.glob(sql_folder_path)
 
-# 执行SQL语句
-cursor.executescript(sql_statements)
+# 各SQLファイルのSQL文を実行
+for sql_file in sql_files:
+    with open(sql_file, 'r') as file:
+        sql_statements = file.read()
+        cursor.executescript(sql_statements)
 
-# 获取动态表名的列表，假设动态表名为table1, table2, ...
+# 動的なテーブル名のリストを取得
 tables_query = "SELECT name FROM sqlite_master WHERE type='table';"
 table_names = cursor.execute(tables_query).fetchall()
 
-# 导出每个表的数据到Excel文件
+# Excelファイルを読み込む
 excel_file_name = 'output.xlsx'
+excel_book = load_workbook(excel_file_name)
 excel_writer = pd.ExcelWriter(excel_file_name, engine='openpyxl')
+excel_writer.book = excel_book
 
+# 各テーブルのデータをExcelファイルにエクスポート
 for table_name in table_names:
-    table_name = table_name[0]  # table_name是一个元组
+    table_name = table_name[0]  # テーブル名はタプル内にある
     query = f"SELECT * FROM {table_name};"
     df = pd.read_sql_query(query, db_conn)
     df.to_excel(excel_writer, sheet_name=table_name, index=False)
 
 excel_writer.save()
 
-# 关闭数据库连接
+# 読み込まれたファイル名をExcelファイルの指定セルに書き込む
+start_row = 0
+start_col = 0
+file_names_str = ', '.join(sql_files)
+file_info_df = pd.DataFrame({'ファイル名': [file_names_str]})
+file_info_df.to_excel(excel_book, sheet_name='ファイル情報', startrow=start_row, startcol=start_col, index=False, header=False)
+
+# データベース接続をクローズ
 cursor.close()
 db_conn.close()
 
-print("数据已成功导出到Excel文件。")
+print("データがExcelファイルに正常にエクスポートされ、ファイル名が指定されたセルに書き込まれました。")
