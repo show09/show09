@@ -67,3 +67,11 @@ print("データがExcelファイルに正常にエクスポートされ、フ�
 #(hour_obj_tdl,hour_common_obj_tds,start_row = 5,start_col = 6)
 #(week_tdl,start_row = 4,start_col = 2)
 #(week_tds,start_row = 12,start_col = 6)
+
+#new_startrow: データの書き込みを開始する行番号
+#new_startcol: データの書き込みを開始する列番号
+#excel_file_name: 出力の Excel ファイル名
+#sql_folder_path: SQL ファイルが格納されているフォルダのパス
+#file_info_column_name: Excel シートにファイル名情報を書き込むための列名
+#file_info_sheet_name: ファイル名情報を書き込む Excel シートの名前
+# #
