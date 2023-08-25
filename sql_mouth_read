@@ -1,0 +1,70 @@
+import sys
+import glob
+import sqlite3
+import pandas as pd
+from openpyxl import load_workbook
+
+# コマンドライン引数の数を確認
+if len(sys.argv) != 8:
+    print("Usage: python script_name.py new_startrow new_startcol input_excel_file_name sql_folder_path file_info_column_name file_info_sheet_name")
+    sys.exit(1)
+
+# コマンドライン引数を変数に代入
+startrow = int(sys.argv[1])
+startcol = int(sys.argv[2])
+input_excel_file_path = sys.argv[3] 
+sql_folder_path = sys.argv[4]
+file_info_column_name = sys.argv[5]
+file_info_sheet_name = sys.argv[6]
+input_excel_file_path = sys.argv[7]
+
+# メモリ内データベースを作成
+db_conn = sqlite3.connect(':memory:')
+cursor = db_conn.cursor()
+
+# SQLフォルダ内のすべてのSQLファイルを読み込む
+sql_files = glob.glob(sql_folder_path + '/*.sql')  # .sqlファイルを読み込む
+
+# 各SQLファイルのSQL文を実行
+for sql_file in sql_files:
+    with open(sql_file, 'r') as file:
+        sql_statements = file.read()
+        cursor.executescript(sql_statements)
+
+# 動的なテーブル名のリストを取得
+tables_query = "SELECT name FROM sqlite_master WHERE type='table';"
+table_names = cursor.execute(tables_query).fetchall()
+
+# Excelファイルを作成
+excel_writer = pd.ExcelWriter(input_excel_file_path, engine='openpyxl')  # 修正：input_excel_file_name -> input_excel_file_path
+
+# 各テーブルのデータをExcelファイルにエクスポート
+for table_name in table_names:
+    table_name = table_name[0]  # テーブル名はタプル内にある
+    query = f"SELECT * FROM {table_name};"
+    df = pd.read_sql_query(query, db_conn)
+    df.to_excel(excel_writer, sheet_name=table_name, index=False, startrow=startrow, startcol=startcol)
+    startrow += len(df) + 1  # 次の行に移動
+
+# 読み込まれたファイル名をExcelファイルの指定セルに書き込む
+file_names_str = ', '.join(sql_files)
+file_info_df = pd.DataFrame({file_info_column_name: [file_names_str]})
+file_info_df.to_excel(excel_writer, sheet_name=file_info_sheet_name, startrow=startrow, startcol=startcol, index=False, header=False)
+
+excel_writer.save()
+
+# データベース接続をクローズ
+cursor.close()
+db_conn.close()
+
+print("データがExcelファイルに正常にエクスポートされ、ファイル名が指定されたセルに書き込まれました。")
+#
+# new_startrow：新しい開始行の番号。
+#new_startcol：新しい開始列の番号。
+#input_excel_file_name：処理されたデータを保存するための入力Excelファイル名。
+#sql_folder_path：SQLファイルが格納されているフォルダのパス。
+#file_info_column_name：ファイル情報を格納するための列名。
+#file_info_sheet_name：ファイル情報を保存するためのシート名。
+#input_excel_file_path：データを読み込むための入力Excelファイルのパス。
+
+#python script_name.py new_startrow new_startcol input_excel_file_name sql_folder_path file_info_column_name file_info_sheet_name input_excel_file_path
